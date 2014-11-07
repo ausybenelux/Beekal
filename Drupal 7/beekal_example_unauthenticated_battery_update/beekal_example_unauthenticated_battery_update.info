@@ -1,0 +1,10 @@
+name = Beacons: unauthenticated battery update
+description = Allows the battery status of a beacon to be updated without authentication. This is meant as a development/demo starting point only and should not be used in a production environment.
+core = 7.x
+package = Beacons
+dependencies[] = ctools
+dependencies[] = beekal
+dependencies[] = services
+features[ctools][] = services:services:3
+features[features_api][] = api:2
+features[services_endpoint][] = beacon_battery_unauthenticated

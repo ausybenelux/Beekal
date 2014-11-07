@@ -1,0 +1,79 @@
+<?php
+/**
+ * @file
+ * Code for the Colruyt Beacons feature.
+ */
+
+include_once 'beekal_example_data_object.features.inc';
+
+function beekal_example_data_object_process_field(&$variables) {
+  if ($variables['element']['#bundle'] == 'beacon_data') {
+    foreach($variables['items'] as &$item) {
+      if (!empty($item['#theme']) && $item['#theme'] == 'image_formatter') {
+        $style = $item['#image_style'];
+        $uri = $item['#item']['uri'];
+        $url = image_style_url($style, $uri);
+        $item = array(
+          '#theme' => 'beekal_example_data_object_output',
+          '#url' => $url,
+        );
+      }
+    }
+  }
+}
+
+function beekal_example_data_object_init() {
+  if (path_is_admin(current_path())) {
+    $path = drupal_get_path('module', 'beekal_example_data_object') . '/js/beekal_example_data_object.js';
+    drupal_add_js($path);
+  }
+}
+
+function beekal_example_data_object_theme() {
+  return array(
+    'beekal_example_data_object_output' => array(
+      'variables' => array('url' => NULL),
+    ),
+  );
+}
+
+
+function theme_beekal_example_data_object_output($variables) {
+  return $variables['url'];
+}
+
+/**
+ * If no thumnail is set, use a rescaled version of the default image instead.
+ */
+function beekal_example_data_object_views_pre_render(&$view) {
+  if ($view->name == 'beacon_data_feed') {
+    foreach ($view->result as &$result) {
+      if (empty($result->field_field_beacon_thumbnail[0]['rendered'])) {
+        $default_image = $result->field_field_beacon_image_gallery_3[0]['rendered'];
+        $result->field_field_beacon_thumbnail[0]['rendered'] = $default_image;
+      }
+    }
+  }
+}
+
+/**
+ * Helper function to retrieve first field item value
+ */
+function beekal_example_data_object_field_get_item($entity_type, $entity, $field_name, $delta = 0, $langcode = NULL) {
+  $langcode = field_language($entity_type, $entity, $field_name, $langcode);
+  return isset($entity->{$field_name}[$langcode][$delta]) ? $entity->{$field_name}[$langcode][$delta] : FALSE;
+}
+
+function beekal_example_data_object_node_presave($node) {
+  // If it's an all-day beacon, set the from & to range to 00:00 - 24:00.
+  if ($node->type == 'beacon_data') {
+    $all_day_field = beekal_example_data_object_field_get_item('node', $node, 'field_beacon_all_day');
+    if ($all_day_field && !empty($all_day_field['value'])) {
+      $langcode = field_language('node', $node, 'field_beacon_active_time_range', NULL);
+      $node->field_beacon_active_time_range[$langcode][0]['value'] = 0;
+      $node->field_beacon_active_time_range[$langcode][0]['value2'] = 86400;
+    }
+  }
+
+  return $node;
+}

@@ -1,0 +1,110 @@
+<?php
+/**
+ * @file
+ * Code for the Beacons: unauthenticated battery update feature.
+ */
+
+include_once 'beekal_example_unauthenticated_battery_update.features.inc';
+
+/**
+ * Implements hook_services_resources().
+ */
+function beekal_example_unauthenticated_battery_update_services_resources() {
+  $api = array(
+    'beacon_battery' => array(
+      'operations' => array(
+        'update' => array(
+          'help' => 'Update the battery status of a beacon.',
+          'callback' => 'beacon_battery_update',
+          'args' => array(
+            array(
+              'name' => 'fn',
+              'optional' => FALSE,
+              'source' => array('path' => 0),
+              'type' => 'string',
+              'description' => 'The function, in this case UPDATE',
+            ),
+            array(
+              'name' => 'uuid',
+              'optional' => FALSE,
+              'source' => array('param' => 'uuid'),
+              'type' => 'string',
+              'description' => 'The UUID of the node to get',
+            ),
+            array(
+              'name' => 'major',
+              'optional' => FALSE,
+              'source' => array('param' => 'major'),
+              'description' => 'The major version of the beacon',
+              'type' => 'int',
+            ),
+            array(
+              'name' => 'minor',
+              'optional' => FALSE,
+              'source' => array('param' => 'minor'),
+              'description' => 'The major version of the beacon',
+              'type' => 'int',
+            ),
+            array(
+              'name' => 'battery',
+              'optional' => FALSE,
+              'source' => array('param' => 'battery'),
+              'description' => 'The node data to update',
+              'type' => 'int',
+            ),
+          ),
+          'access callback' => 'user_access',
+          'access arguments' => array('access content'),
+          'access arguments append' => FALSE,
+        ),
+      ),
+    ),
+  );
+  return $api;
+}
+
+
+function beacon_battery_update($fn, $uuid, $major, $minor, $battery) {
+  // Sanity checks on battery, major, minor and UUID
+  if (empty($battery) || intval($battery) != $battery || $battery < 0 || $battery > 100) {
+    throw new ServicesException('The battery status needs to be an integer between 0 and 100.');
+  }
+  if (empty($major) || intval($major) != $major) {
+    throw new ServicesException('The specified Major version is not a valid number.');
+  }
+  if (empty($minor) || intval($minor) != $minor) {
+    throw new ServicesException('The specified Minor version is not a valid number.');
+  }
+  if (!preg_match('/.{8}-.{4}-.{4}-.{4}-.{12}/', $uuid)) {
+    throw new ServicesException('UUID "' . $uuid . '" does not match the expected format. Should be in a format resembling "A3E66DB5-DEFB-4812-B060-D0F5A71096E0".');
+  }
+
+  // Check whether the specified beacon exists in the database.
+  $query = db_select('field_data_field_beekal_proximity_uuid', 'u');
+  $query->join('field_data_field_beekal_major', 'ma', 'u.entity_id = ma.entity_id');
+  $query->join('field_data_field_beekal_minor', 'mi', 'u.entity_id = mi.entity_id');
+  $query->condition('u.field_beekal_proximity_uuid_value', $uuid)
+  ->condition('ma.field_beekal_major_value', $major)
+  ->condition('mi.field_beekal_minor_value', $minor)
+  ->fields('u', array('entity_id'));
+  $result = $query->execute();
+  $node = NULL;
+  foreach ($result as $record) {
+    $nid = $record->entity_id;
+    $node = node_load($nid);
+  }
+  if (empty($node)) {
+  throw new ServicesException('UUID "' . $uuid . '" with Major ' . $major . ' and Minor ' . $minor . ' not found in database.');
+  }
+
+  // Update the battery level.
+  $node->field_beekal_battery_level[LANGUAGE_NONE][0]['value'] = $battery;
+  node_save($node);
+
+  // Confirm that the save was successful.
+  $confirm = node_load($node->nid);
+  if ($node->field_beekal_battery_level[LANGUAGE_NONE][0]['value'] != $confirm->field_beekal_battery_level[LANGUAGE_NONE][0]['value']) {
+    throw new ServicesException('Something went wrong while updating the beacon battery status. Please check the Drupal logs for more information.');
+  }
+  return 'Beacon with UUID "' . $uuid . '", Major ' . $major . ' and Minor ' . $minor . ' had its battery status updated to ' . $battery . '%.';
+}

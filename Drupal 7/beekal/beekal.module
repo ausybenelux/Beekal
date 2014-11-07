@@ -1,0 +1,19 @@
+<?php
+/**
+ * @file
+ * Code for the Beacons: content feature.
+ */
+
+include_once 'beekal.features.inc';
+
+/**
+ * Implements hook_permission().
+ */
+function beekal_permission() {
+  return array(
+    'view beacon admin panel' => array(
+      'title' => t('View beacon admin panel'),
+      'description' => t('Found at /admin/content/beacons'),
+    ),
+  );
+}

@@ -1,0 +1,19 @@
+<?php
+
+function beekal_example_data_object_requirements($phase) {
+  if ($phase == 'install') {
+    if (!module_exists('views_json')) {
+      module_enable(array('views_json'));
+      if (!module_exists('views_json')) {
+        $requirements = array();
+        $requirements['views_datasource'] = array(
+          'title' => 'Dependency on views_datasource module',
+          'description' => 'beekal_example_data_object depends on submodules in the views_datasource project. Please download views_datasource manually before proceeding.',
+          'severity' => REQUIREMENT_ERROR,
+        );
+        return $requirements;
+      }
+    }
+  }
+  return array();
+}
